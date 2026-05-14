@@ -2,6 +2,7 @@ use alpm::Alpm;
 use anyhow::{
     Context,
     Result,
+    anyhow,
 };
 use pacmanconf::Config;
 use serde::Serialize;
@@ -86,10 +87,10 @@ impl Report {
             Alpm::new(pacman_conf.root_dir, pacman_conf.db_path).context("Could not access ALPM")?
         };
 
-        let pkg = alpm
-            .localdb()
-            .pkg(self.pkg_name.as_bytes())
-            .with_context(|| format!("package = {}", self.pkg_name))?;
+        let Ok(pkg) = alpm.localdb().pkg(self.pkg_name.as_bytes()) else {
+            return Err(anyhow!("Package `{}` is not installed.", self.pkg_name));
+        };
+
         for dep in pkg.optdepends() {
             self.deps.push(Package {
                 name: dep.name().into(),
