@@ -39,7 +39,24 @@ fn run() -> Result<()> {
     let arguments = Arguments::parse();
     debug!("Run with {:?}", arguments);
 
-    let mut report = Report::new();
+    let mut report = Report::new(arguments.name);
+
+    if arguments.installed {
+        report.installed();
+    }
+
+    if arguments.uninstalled {
+        report.uninstalled();
+    }
+
+    if arguments.name_only {
+        report.name_only();
+    }
+
+    if arguments.xargs {
+        report.xargs();
+    }
+
     report.build()?;
 
     let mut stdout = io::BufWriter::new(io::stdout().lock());
@@ -50,7 +67,7 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
-    // writeln!(stdout, "{report}")?;
+    write!(stdout, "{report}")?;
 
     Ok(())
 }

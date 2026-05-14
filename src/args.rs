@@ -22,7 +22,7 @@ pub struct Arguments {
     #[arg(long)]
     pub xargs: bool,
 
-    /// Output to JSON format
+    /// Output to JSON format without filter
     #[arg(long)]
     pub json: bool,
 }
