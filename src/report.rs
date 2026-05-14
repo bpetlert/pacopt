@@ -5,6 +5,16 @@ use anyhow::{
 };
 use pacmanconf::Config;
 use serde::Serialize;
+use tabled::{
+    Table,
+    Tabled,
+    settings::{
+        Alignment,
+        Modify,
+        Style,
+        location::ByColumnName,
+    },
+};
 
 #[derive(Debug, Serialize)]
 pub struct Report {
@@ -27,15 +37,18 @@ pub struct Report {
     pub xargs: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Tabled)]
 pub struct Package {
     #[serde(rename = "Name")]
+    #[tabled(rename = "Name")]
     pub name: String,
 
     #[serde(rename = "Description")]
+    #[tabled(rename = "Description")]
     pub description: String,
 
     #[serde(rename = "Installed")]
+    #[tabled(rename = "Installed")]
     pub installed: bool,
 }
 
@@ -123,13 +136,20 @@ impl std::fmt::Display for Report {
             return Ok(());
         }
 
-        for pkg in deps.iter() {
-            if self.name_only {
+        if self.name_only {
+            for pkg in deps.iter() {
                 writeln!(f, "{name}", name = pkg.name)?;
-            } else {
-                writeln!(f, "{name}: {desc}", name = pkg.name, desc = pkg.description)?;
             }
+            return Ok(());
         }
+
+        let mut table = Table::new(deps);
+        table
+            .with(Style::re_structured_text())
+            .with(Modify::new(ByColumnName::new("Name")).with(Alignment::left()))
+            .with(Modify::new(ByColumnName::new("Description")).with(Alignment::left()))
+            .with(Modify::new(ByColumnName::new("Installed")).with(Alignment::left()));
+        writeln!(f, "{table}")?;
 
         Ok(())
     }
