@@ -6,8 +6,8 @@ pkgdesc="A tool to query optional deps of an installed package"
 arch=('x86_64')
 url="https://github.com/bpetlert/pacopt"
 license=('GPL-3.0-or-later')
+depends=(libalpm.so)
 makedepends=(cargo)
-options=(!lto)
 
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/bpetlert/${pkgname}/archive/${pkgver}.tar.gz")
 b2sums=('')
