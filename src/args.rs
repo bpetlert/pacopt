@@ -7,19 +7,19 @@ pub struct Arguments {
     pub name: String,
 
     /// Show installed packages
-    #[arg(long)]
+    #[arg(short, long)]
     pub installed: bool,
 
     /// Show uninstalled packages
-    #[arg(long)]
+    #[arg(short, long)]
     pub uninstalled: bool,
 
     /// Show package name only
-    #[arg(long)]
+    #[arg(short, long)]
     pub name_only: bool,
 
     /// Create argument list
-    #[arg(long)]
+    #[arg(short, long)]
     pub xargs: bool,
 
     /// Output to JSON format without filter
