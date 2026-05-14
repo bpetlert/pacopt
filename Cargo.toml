@@ -2,7 +2,7 @@
 name = "pacopt"
 version = "0.1.0"
 edition = "2024"
-description = "A tool to query optional deps"
+description = "A tool to query optional deps of an installed package"
 documentation = ""
 readme = ""
 homepage = ""
