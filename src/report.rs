@@ -86,11 +86,14 @@ impl Report {
             Alpm::new(pacman_conf.root_dir, pacman_conf.db_path).context("Could not access ALPM")?
         };
 
-        let pkg = alpm.localdb().pkg(self.pkg_name.as_bytes())?;
+        let pkg = alpm
+            .localdb()
+            .pkg(self.pkg_name.as_bytes())
+            .with_context(|| format!("package = {}", self.pkg_name))?;
         for dep in pkg.optdepends() {
             self.deps.push(Package {
                 name: dep.name().into(),
-                description: dep.desc().unwrap().into(),
+                description: dep.desc().map_or_else(String::new, |v| v.into()),
                 installed: alpm.localdb().pkg(dep.name()).is_ok(),
             });
         }
