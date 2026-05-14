@@ -1,0 +1,41 @@
+# Maintainer: Bhanupong Petchlert <bpetlert@gmail.com>
+pkgname=pacopt
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A tool to query optional deps of an installed package"
+arch=('x86_64')
+url="https://github.com/bpetlert/pacopt"
+license=('GPL-3.0-or-later')
+makedepends=(cargo)
+options=(!lto)
+
+# Build from local directory
+source=()
+
+# Using the most recent annotated tag reachable from the last commit.
+pkgver() {
+    cd "${startdir}"
+    git describe --long | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+    cd "${startdir}"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target host-tuple
+}
+
+build() {
+    cd "${startdir}"
+    export RUSTUP_TOOLCHAIN=stable
+
+    # Ignore target-dir in ~/.cargo/config, reset it to default: "target".
+    # Add "${srcdir}" to support BUILDDIR variable in makepkg.
+    export CARGO_TARGET_DIR=${srcdir}/target
+
+    cargo build --frozen --release
+}
+
+package() {
+    install -vDm755 -t "${pkgdir}/usr/bin" "${srcdir}/target/release/pacopt"
+    install -vDm644 -t "${pkgdir}/usr/share/doc/${pkgname}" "${startdir}/README.adoc"
+}

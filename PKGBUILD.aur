@@ -1,0 +1,32 @@
+# Maintainer: Bhanupong Petchlert <bpetlert@gmail.com>
+pkgname=pacopt
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A tool to query optional deps of an installed package"
+arch=('x86_64')
+url="https://github.com/bpetlert/pacopt"
+license=('GPL-3.0-or-later')
+makedepends=(cargo)
+options=(!lto)
+
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/bpetlert/${pkgname}/archive/${pkgver}.tar.gz")
+b2sums=('')
+
+prepare() {
+    cd "${pkgname}-${pkgver}"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target host-tuple
+}
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+package() {
+    cd "${pkgname}-${pkgver}"
+    install -vDm755 -t "${pkgdir}/usr/bin" target/release/pacopt
+    install -vDm644 -t "${pkgdir}/usr/share/doc/${pkgname}" README.adoc
+}
