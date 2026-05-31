@@ -145,6 +145,10 @@ impl std::fmt::Display for Report {
             })
             .collect();
 
+        if deps.is_empty() {
+            return Ok(());
+        }
+
         if self.xargs {
             write!(
                 f,
