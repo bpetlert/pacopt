@@ -92,10 +92,27 @@ impl Report {
         };
 
         for dep in pkg.optdepends() {
+            let provider_pkgname = alpm.localdb().pkgs().iter().find_map(|p| {
+                if !p.provides().is_empty() && p.provides().iter().any(|d| d.name() == dep.name()) {
+                    Some(p.name())
+                } else {
+                    None
+                }
+            });
+
+            let name: String = if let Some(pkgname) = provider_pkgname {
+                format!("{} ({pkgname})", dep.name())
+            } else {
+                dep.name().into()
+            };
+
+            let installed: bool =
+                provider_pkgname.is_some() || alpm.localdb().pkg(dep.name()).is_ok();
+
             self.deps.push(Package {
-                name: dep.name().into(),
+                name,
                 description: dep.desc().map_or_else(String::new, |v| v.into()),
-                installed: alpm.localdb().pkg(dep.name()).is_ok(),
+                installed,
             });
         }
 
