@@ -1,4 +1,8 @@
-use alpm::Alpm;
+use alpm::{
+    Alpm,
+    Dep,
+    SigLevel,
+};
 use anyhow::{
     Context,
     Result,
@@ -36,13 +40,20 @@ pub struct Report {
 
     #[serde(skip_serializing)]
     pub xargs: bool,
+
+    #[serde(skip_serializing)]
+    alpm: Alpm,
 }
 
-#[derive(Debug, Serialize, Tabled)]
+#[derive(Clone, Debug, Serialize, Tabled)]
 pub struct Package {
     #[serde(rename = "Name")]
     #[tabled(rename = "Name")]
     pub name: String,
+
+    #[serde(rename = "Provider")]
+    #[tabled(skip)]
+    pub provider: String,
 
     #[serde(rename = "Description")]
     #[tabled(rename = "Description")]
@@ -54,15 +65,30 @@ pub struct Package {
 }
 
 impl Report {
-    pub fn new<S: Into<String>>(pkg_name: S) -> Self {
-        Self {
+    pub fn new<S: Into<String>>(pkg_name: S) -> Result<Self> {
+        let alpm = {
+            let pacman_conf = Config::new().context("Failed to load `pacman.conf`")?;
+            let alpm = Alpm::new(pacman_conf.root_dir, pacman_conf.db_path)
+                .context("Could not access ALPM")?;
+
+            // Register repository database
+            for repo in &pacman_conf.repos {
+                alpm.register_syncdb(&*repo.name, SigLevel::USE_DEFAULT)
+                    .with_context(|| format!("Could not register `{}`", repo.name))?;
+            }
+
+            alpm
+        };
+
+        Ok(Self {
             pkg_name: pkg_name.into(),
             installed: false,
             uninstalled: false,
             name_only: false,
             xargs: false,
             deps: Vec::new(),
-        }
+            alpm,
+        })
     }
 
     pub fn installed(&mut self) {
@@ -81,38 +107,63 @@ impl Report {
         self.xargs = true;
     }
 
-    pub fn build(&mut self) -> Result<()> {
-        let alpm = {
-            let pacman_conf = Config::new().context("Failed to load `pacman.conf`")?;
-            Alpm::new(pacman_conf.root_dir, pacman_conf.db_path).context("Could not access ALPM")?
-        };
+    pub fn provider(&self, dep: &Dep) -> Result<Package> {
+        if let Ok(pkg) = self.alpm.localdb().pkg(dep.name()) {
+            return Ok(Package {
+                name: dep.name().into(),
+                provider: dep.name().into(),
+                description: dep
+                    .desc()
+                    .unwrap_or_else(|| pkg.desc().unwrap_or_default())
+                    .into(),
+                installed: true,
+            });
+        }
 
-        let Ok(pkg) = alpm.localdb().pkg(self.pkg_name.as_bytes()) else {
+        // Search in localdb (installed)
+        for pkg in self.alpm.localdb().pkgs().iter() {
+            if !pkg.provides().is_empty() && pkg.provides().iter().any(|d| d.name() == dep.name()) {
+                return Ok(Package {
+                    name: dep.name().into(),
+                    provider: pkg.name().into(),
+                    description: pkg.desc().map_or_else(String::new, |v| v.into()),
+                    installed: true,
+                });
+            }
+        }
+
+        // Search in all syncdbs
+        for db in self.alpm.syncdbs().iter() {
+            if let Ok(pkg) = db.pkg(dep.name()) {
+                return Ok(Package {
+                    name: dep.name().into(),
+                    provider: pkg.name().into(),
+                    description: pkg.desc().map_or_else(String::new, |v| v.into()),
+                    installed: false,
+                });
+            }
+        }
+
+        Ok(Package {
+            name: dep.name().into(),
+            provider: String::new(),
+            description: String::new(),
+            installed: false,
+        })
+    }
+
+    pub fn build(&mut self) -> Result<()> {
+        let Ok(pkg) = self.alpm.localdb().pkg(self.pkg_name.as_bytes()) else {
             return Err(anyhow!("Package `{}` is not installed.", self.pkg_name));
         };
 
         for dep in pkg.optdepends() {
-            let provider_pkgname = alpm.localdb().pkgs().iter().find_map(|p| {
-                if !p.provides().is_empty() && p.provides().iter().any(|d| d.name() == dep.name()) {
-                    Some(p.name())
-                } else {
-                    None
-                }
-            });
-
-            let name: String = if let Some(pkgname) = provider_pkgname {
-                format!("{} ({pkgname})", dep.name())
-            } else {
-                dep.name().into()
-            };
-
-            let installed: bool =
-                provider_pkgname.is_some() || alpm.localdb().pkg(dep.name()).is_ok();
-
+            let provider = self.provider(dep)?;
             self.deps.push(Package {
-                name,
-                description: dep.desc().map_or_else(String::new, |v| v.into()),
-                installed,
+                name: provider.name,
+                provider: provider.provider,
+                description: provider.description,
+                installed: provider.installed,
             });
         }
 
@@ -135,7 +186,7 @@ impl std::fmt::Display for Report {
             (false, false) => ShowMode::All,
         };
 
-        let deps: Vec<_> = self
+        let deps = self
             .deps
             .iter()
             .filter(|p| match show_mode {
@@ -143,7 +194,22 @@ impl std::fmt::Display for Report {
                 ShowMode::Installed => p.installed,
                 ShowMode::Uninstalled => !p.installed,
             })
-            .collect();
+            .cloned()
+            .map(|p| {
+                let name = if p.name != p.provider {
+                    format!("{} ({})", p.name, p.provider)
+                } else {
+                    p.name
+                };
+
+                Package {
+                    name,
+                    provider: p.provider,
+                    description: p.description,
+                    installed: p.installed,
+                }
+            })
+            .collect::<Vec<_>>();
 
         if deps.is_empty() {
             return Ok(());
@@ -154,7 +220,7 @@ impl std::fmt::Display for Report {
                 f,
                 "{}",
                 deps.iter()
-                    .map(|p| p.name.as_str())
+                    .map(|p| p.provider.as_str())
                     .collect::<Vec<&str>>()
                     .join(" ")
             )?;
@@ -163,7 +229,7 @@ impl std::fmt::Display for Report {
 
         if self.name_only {
             for pkg in deps.iter() {
-                writeln!(f, "{name}", name = pkg.name)?;
+                writeln!(f, "{name}", name = pkg.provider)?;
             }
             return Ok(());
         }

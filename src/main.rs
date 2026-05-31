@@ -39,7 +39,7 @@ fn run() -> Result<()> {
     let arguments = Arguments::parse();
     debug!("Run with {:?}", arguments);
 
-    let mut report = Report::new(arguments.name);
+    let mut report = Report::new(arguments.name)?;
 
     if arguments.installed {
         report.installed();

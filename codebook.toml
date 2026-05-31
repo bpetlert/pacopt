@@ -1,4 +1,7 @@
 words = [
   "alpm",
+  "localdb",
   "pacman",
+  "pkgname",
+  "syncdbs",
 ]
