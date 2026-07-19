@@ -126,7 +126,10 @@ impl Report {
                 return Ok(Package {
                     name: dep.name().into(),
                     provider: pkg.name().into(),
-                    description: pkg.desc().map_or_else(String::new, |v| v.into()),
+                    description: dep
+                        .desc()
+                        .unwrap_or_else(|| pkg.desc().unwrap_or_default())
+                        .into(),
                     installed: true,
                 });
             }
@@ -138,7 +141,10 @@ impl Report {
                 return Ok(Package {
                     name: dep.name().into(),
                     provider: pkg.name().into(),
-                    description: pkg.desc().map_or_else(String::new, |v| v.into()),
+                    description: dep
+                        .desc()
+                        .unwrap_or_else(|| pkg.desc().unwrap_or_default())
+                        .into(),
                     installed: false,
                 });
             }
