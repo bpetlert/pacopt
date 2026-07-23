@@ -153,7 +153,7 @@ impl Report {
         Ok(Package {
             name: dep.name().into(),
             provider: String::new(),
-            description: String::new(),
+            description: dep.desc().unwrap_or_default().into(),
             installed: false,
         })
     }
@@ -202,7 +202,7 @@ impl std::fmt::Display for Report {
             })
             .cloned()
             .map(|p| {
-                let name = if p.name != p.provider {
+                let name = if p.name != p.provider && !p.provider.is_empty() {
                     format!("{} ({})", p.name, p.provider)
                 } else {
                     p.name
