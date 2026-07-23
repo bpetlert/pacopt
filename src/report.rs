@@ -48,7 +48,7 @@ pub struct Report {
 #[derive(Clone, Debug, Serialize, Tabled)]
 pub struct Package {
     #[serde(rename = "Name")]
-    #[tabled(rename = "Name")]
+    #[tabled(order = 1, rename = "Name")]
     pub name: String,
 
     #[serde(rename = "Provider")]
@@ -56,12 +56,20 @@ pub struct Package {
     pub provider: String,
 
     #[serde(rename = "Description")]
-    #[tabled(rename = "Description")]
+    #[tabled(order = 2, rename = "Description")]
     pub description: String,
 
     #[serde(rename = "Installed")]
-    #[tabled(rename = "Installed")]
+    #[tabled(order = 0, rename = "Installed", display = "display_installed")]
     pub installed: bool,
+}
+
+fn display_installed(installed: &bool) -> String {
+    if *installed {
+        "✔️".into()
+    } else {
+        "❌".into()
+    }
 }
 
 impl Report {
@@ -245,7 +253,7 @@ impl std::fmt::Display for Report {
             .with(Style::re_structured_text())
             .with(Modify::new(ByColumnName::new("Name")).with(Alignment::left()))
             .with(Modify::new(ByColumnName::new("Description")).with(Alignment::left()))
-            .with(Modify::new(ByColumnName::new("Installed")).with(Alignment::left()));
+            .with(Modify::new(ByColumnName::new("Installed")).with(Alignment::center()));
         writeln!(f, "{table}")?;
 
         Ok(())
