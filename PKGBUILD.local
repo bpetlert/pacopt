@@ -37,5 +37,6 @@ build() {
 
 package() {
     install -vDm755 -t "${pkgdir}/usr/bin" "${srcdir}/target/release/pacopt"
+    install -vDm644 -t "${pkgdir}/usr/share/fish/vendor_completions.d" "${startdir}/completions/pacopt.fish"
     install -vDm644 -t "${pkgdir}/usr/share/doc/${pkgname}" "${startdir}/README.adoc"
 }

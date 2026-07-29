@@ -28,5 +28,6 @@ build() {
 package() {
     cd "${pkgname}-${pkgver}"
     install -vDm755 -t "${pkgdir}/usr/bin" target/release/pacopt
+    install -vDm644 -t "${pkgdir}/usr/share/fish/vendor_completions.d" completions/pacopt.fish
     install -vDm644 -t "${pkgdir}/usr/share/doc/${pkgname}" README.adoc
 }
