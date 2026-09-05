@@ -265,6 +265,8 @@ impl std::fmt::Display for Report {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+    use serde_json::json;
     use tabled::assert::assert_table;
 
     use super::*;
@@ -323,5 +325,49 @@ mod tests {
             "    ❌       aarch64-linux-gnu-gcc   aarch64-unknown-linux-* targets      "
             "=========== ======================= ======================================"
         );
+    }
+
+    #[test]
+    fn test_report_to_json() {
+        let report = setup_figure();
+        let json = serde_json::to_string(&report).unwrap();
+        let expected = json!(
+            {
+                "Name": "rustup",
+                "OptionalDeps": [
+                    {
+                        "Name": "lldb",
+                        "Provider": "lldb",
+                        "Description": "rust-lldb script",
+                        "Installed": false
+                    },
+                    {
+                        "Name": "gdb",
+                        "Provider": "gdb",
+                        "Description": "rust-gdb script",
+                        "Installed": true
+                    },
+                    {
+                        "Name": "gcc",
+                        "Provider": "gcc",
+                        "Description": "build executables for most targets",
+                        "Installed": true
+                    },
+                    {
+                        "Name": "mingw-w64-gcc",
+                        "Provider": "mingw-w64-gcc",
+                        "Description": "{i686,x86_64}-pc-windows-gnu targets",
+                        "Installed": false
+                    },
+                    {
+                        "Name": "aarch64-linux-gnu-gcc",
+                        "Provider": "aarch64-linux-gnu-gcc",
+                        "Description": "aarch64-unknown-linux-* targets",
+                        "Installed": false
+                    }
+                ]
+            }
+        );
+        assert_eq!(json, expected.to_string());
     }
 }
