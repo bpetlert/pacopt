@@ -11,8 +11,7 @@ use anyhow::{
 use pacmanconf::Config;
 use serde::Serialize;
 use tabled::{
-    Table,
-    Tabled,
+    builder::Builder,
     settings::{
         Alignment,
         Modify,
@@ -45,31 +44,19 @@ pub struct Report {
     alpm: Alpm,
 }
 
-#[derive(Clone, Debug, Serialize, Tabled)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Package {
     #[serde(rename = "Name")]
-    #[tabled(order = 1, rename = "Name")]
     pub name: String,
 
     #[serde(rename = "Provider")]
-    #[tabled(skip)]
     pub provider: String,
 
     #[serde(rename = "Description")]
-    #[tabled(order = 2, rename = "Description")]
     pub description: String,
 
     #[serde(rename = "Installed")]
-    #[tabled(order = 0, rename = "Installed", display = "display_installed")]
     pub installed: bool,
-}
-
-fn display_installed(installed: &bool) -> String {
-    if *installed {
-        "✔️".into()
-    } else {
-        "❌".into()
-    }
 }
 
 impl Report {
@@ -185,6 +172,28 @@ impl Report {
     }
 }
 
+fn deps_to_table(deps: &[Package]) -> String {
+    let mut table_builder = Builder::with_capacity(&deps.len() + 1, 3);
+    table_builder.push_record(["Installed", "Name", "Description"]);
+    for dep in deps {
+        let installed = if dep.installed {
+            "✔️".into()
+        } else {
+            "❌".into()
+        };
+
+        table_builder.push_record([&installed, &dep.name, &dep.description]);
+    }
+
+    let mut table = table_builder.build();
+    table
+        .with(Style::re_structured_text())
+        .with(Modify::new(ByColumnName::new("Name")).with(Alignment::left()))
+        .with(Modify::new(ByColumnName::new("Description")).with(Alignment::left()))
+        .with(Modify::new(ByColumnName::new("Installed")).with(Alignment::center()));
+    table.to_string()
+}
+
 impl std::fmt::Display for Report {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         enum ShowMode {
@@ -248,14 +257,71 @@ impl std::fmt::Display for Report {
             return Ok(());
         }
 
-        let mut table = Table::new(deps);
-        table
-            .with(Style::re_structured_text())
-            .with(Modify::new(ByColumnName::new("Name")).with(Alignment::left()))
-            .with(Modify::new(ByColumnName::new("Description")).with(Alignment::left()))
-            .with(Modify::new(ByColumnName::new("Installed")).with(Alignment::center()));
-        writeln!(f, "{table}")?;
+        writeln!(f, "{}", deps_to_table(&deps))?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tabled::assert::assert_table;
+
+    use super::*;
+
+    fn setup_figure() -> Report {
+        let mut report = Report::new("rustup").unwrap();
+        report.deps.push(Package {
+            name: "lldb".into(),
+            provider: "lldb".into(),
+            description: "rust-lldb script".into(),
+            installed: false,
+        });
+
+        report.deps.push(Package {
+            name: "gdb".into(),
+            provider: "gdb".into(),
+            description: "rust-gdb script".into(),
+            installed: true,
+        });
+
+        report.deps.push(Package {
+            name: "gcc".into(),
+            provider: "gcc".into(),
+            description: "build executables for most targets".into(),
+            installed: true,
+        });
+
+        report.deps.push(Package {
+            name: "mingw-w64-gcc".into(),
+            provider: "mingw-w64-gcc".into(),
+            description: "{i686,x86_64}-pc-windows-gnu targets".into(),
+            installed: false,
+        });
+
+        report.deps.push(Package {
+            name: "aarch64-linux-gnu-gcc".into(),
+            provider: "aarch64-linux-gnu-gcc".into(),
+            description: "aarch64-unknown-linux-* targets".into(),
+            installed: false,
+        });
+
+        report
+    }
+
+    #[test]
+    fn test_deps_to_table() {
+        let report = setup_figure();
+        assert_table!(deps_to_table(&report.deps),
+            "=========== ======================= ======================================"
+            " Installed   Name                    Description                          "
+            "=========== ======================= ======================================"
+            "    ❌       lldb                    rust-lldb script                     "
+            "    ✔\u{fe0f}       gdb                     rust-gdb script                      "
+            "    ✔\u{fe0f}       gcc                     build executables for most targets   "
+            "    ❌       mingw-w64-gcc           {i686,x86_64}-pc-windows-gnu targets "
+            "    ❌       aarch64-linux-gnu-gcc   aarch64-unknown-linux-* targets      "
+            "=========== ======================= ======================================"
+        );
     }
 }
